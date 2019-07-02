@@ -37,17 +37,27 @@ def get_order_counts(input_df_1, input_df_2):
     by_dep_count.rename(index=str, columns={'reordered': 'number_of_orders'}, inplace=True)
 
     # 2) counts for number_of_first_orders
-    by_dep_first = df_join[df_join['reordered'] == 0.0].groupby(by='department_id')
+    by_dep_first = df_join[df_join['reordered'] == 0].groupby(by='department_id')
     by_dep_first_count = by_dep_first['reordered'].count()
     by_dep_first_count = pd.DataFrame(by_dep_first_count)
     by_dep_first_count.rename(index=str, columns={'reordered': 'number_of_first_orders'}, inplace=True)
 
-    # merge two DataFrame as the result DataFrame
-    df_result = pd.merge(by_dep_count, by_dep_first_count, left_index=True, right_index=True)
+    # full join the above two DataFrames
+    df_result = pd.merge(by_dep_count, by_dep_first_count, how='outer', left_index=True, right_index=True)
 
-    # Apply column functions
-    df_result['percentage'] = round(df_result['number_of_first_orders'] / df_result['number_of_orders'], 2)
+    # replace NaN to 0 and convert column types back to Int
+    df_result.replace({np.NaN: 0}, inplace=True)
+    df_result['number_of_orders'] = df_result['number_of_orders'].astype(int)
+    df_result['number_of_first_orders'] = df_result['number_of_first_orders'].astype(int)
+
+    # listed only if number_of_orders is greater than 0
     df_result = df_result[df_result['number_of_orders'] > 0]
+
+    # percentage column rounded to the second decimal
+    df_result['percentage'] = df_result['number_of_first_orders'] / df_result['number_of_orders']
+    df_result['percentage'] = df_result['percentage'].apply(lambda x: '%.2f' % x)
+
+    # sort by department_id and ascending order
     df_result = df_result.reset_index()
     df_result['department_id'] = df_result['department_id'].astype(int)
     df_result = df_result.sort_values(by=['department_id'], ascending=True)
